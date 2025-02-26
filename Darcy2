@@ -1,0 +1,73 @@
+;intento6
+
+#include <p18f4550.inc>
+CONFIG  FOSC = INTOSC_EC      
+CONFIG  WDT = OFF            
+CONFIG  LVP = OFF   
+
+CBLOCK  0x20  ; Abre el bloque para la memoria
+  CONTA_1     ; Definir registros en memoria de propo?sito general
+  CONTA_2
+  CONTA_3
+ENDC          ; cierra el bloque
+
+ORG 0x00
+Inicio: 
+    
+    MOVLW 0b01110010
+    MOVWF OSCCON  ;Configueracion
+    CLRF LATB        ; Limpia PORTB
+    CLRF TRISB       ; Configura todo PORTB como salida
+    BCF TRISB, RB4   ; RB4 como salida
+
+Flujo:
+    BSF LATB, RB4     ; Enciende LED
+    CALL Retardo_5s
+    BCF LATB, RB4     ; Apaga LED
+    CALL Retardo_2s
+    GOTO Flujo
+
+Retardo_5s:   
+    MOVLW d'50'
+    MOVWF CONTA_3
+    
+    MOVLW d'100' 
+    MOVWF CONTA_2
+    
+    MOVLW d'250'
+    MOVWF CONTA_1
+
+
+    ;subrutina de retardos 
+Ret5_Loop:
+    NOP               ;no hace nada solo come tiempo 
+    DECFSZ CONTA_1,F  ;le resta uno, si llega a cero salta una linea 
+    GOTO Ret5_Loop    ;lo devuelve al inicio 
+    DECFSZ CONTA_2,F  
+    GOTO Ret5_Loop  
+    DECFSZ CONTA_3,F  
+    GOTO Ret5_Loop  
+    RETURN 
+
+Retardo_2s:   
+    MOVLW d'20'  
+    MOVWF CONTA_3  
+    
+    MOVLW d'100'  
+    MOVWF CONTA_2  
+    
+    MOVLW d'250'  
+    MOVWF CONTA_1  
+
+Ret2_Loop:
+    NOP  
+    DECFSZ CONTA_1,F   
+    GOTO Ret2_Loop  
+    DECFSZ CONTA_2,F  
+    GOTO Ret2_Loop  
+    DECFSZ CONTA_3,F  
+    GOTO Ret2_Loop  
+    RETURN  
+END
+
+
