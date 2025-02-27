@@ -1,0 +1,67 @@
+;Secuencia de leds 
+#include <p18f4550.inc>
+    
+    CONFIG  FOSC = INTOSC_EC
+    CONFIG  PLLDIV = 1
+    CONFIG  CPUDIV = OSC1_PLL2  ; Corrección del error NOCLKDIV
+    CONFIG  WDT = OFF            
+    CONFIG  LVP = OFF   
+
+CBLOCK  0x20  
+  CONTA_1    
+  CONTA_2
+  CONTA_3
+ENDC          
+
+ORG 0x00
+  
+Inicio:
+    MOVLW 0b01110010  ; Configurar oscilador a 8 MHz
+    MOVWF OSCCON      
+
+    CLRF LATB         
+    CLRF TRISB        
+    BCF TRISB, RB0    
+    BCF TRISB, RB1
+    BCF TRISB, RB2
+    BCF TRISB, RB3    
+
+Flujo:
+    BSF LATB, RB0     
+    CALL Retardo
+    BCF LATB, RB0     
+    CALL Retardo
+    
+    BSF LATB, RB1     
+    CALL Retardo
+    BCF LATB, RB1     
+    CALL Retardo
+    
+    BSF LATB, RB2     
+    CALL Retardo
+    BCF LATB, RB2     
+    CALL Retardo
+    
+    GOTO Flujo
+    
+Retardo:   
+    MOVLW d'50'       
+    MOVWF CONTA_3
+    
+    MOVLW d'255'  
+    MOVWF CONTA_2
+    
+    MOVLW d'255'
+    MOVWF CONTA_1
+
+Retardo_Loop:
+    NOP               
+    DECFSZ CONTA_1,F  
+    GOTO Retardo_Loop    
+    DECFSZ CONTA_2,F  
+    GOTO Retardo_Loop  
+    DECFSZ CONTA_3,F  
+    GOTO Retardo_Loop  
+    RETURN 
+    
+END
