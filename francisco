@@ -1,0 +1,63 @@
+#include "p18f4550.inc"
+
+; CONFIG1H
+  CONFIG  FOSC = INTOSC_HS      ; Oscillator Selection bits (Internal oscillator, HS oscillator used by USB (INTHS))
+  CONFIG  FCMEN = OFF           ; Fail-Safe Clock Monitor Enable bit (Fail-Safe Clock Monitor disabled)
+  CONFIG  IESO = OFF            ; Internal/External Oscillator Switchover bit (Oscillator Switchover mode disabled)
+
+    ORG     0x00                ; Dirección de inicio
+
+; Variables para los retardos
+DELAY_COUNT1 EQU 0x20          ; Variable para el retardo de 5 segundos
+DELAY_COUNT2 EQU 0x21          ; Variable para el retardo de 2 segundos
+
+START:
+    CLRF    TRISB              ; Configurar PORTB como salida (0 = salida, 1 = entrada)
+    CLRF    LATB               ; Apagar todos los pines de PORTB (LED apagado inicialmente)
+
+MAIN_LOOP:
+    BSF     LATB, RB0          ; Encender el LED en RB0
+    CALL    DELAY_5000MS       ; Llamar a la rutina de retardo de 5000 ms (5 segundos)
+    BCF     LATB, RB0          ; Apagar el LED en RB0
+    CALL    DELAY_2000MS       ; Llamar a la rutina de retardo de 2000 ms (2 segundos)
+    GOTO    MAIN_LOOP          ; Repetir el ciclo
+
+; Rutina de retardo de 5000 ms (5 segundos)
+DELAY_5000MS:
+    MOVLW   0x05               ; Cargar el valor inicial para el retardo (5 iteraciones de 1 segundo)
+    MOVWF   DELAY_COUNT1       ; Guardar en la variable de retardo
+DELAY_LOOP1:
+    CALL    DELAY_1000MS       ; Llamar a la rutina de retardo de 1000 ms (1 segundo)
+    DECFSZ  DELAY_COUNT1, F    ; Decrementar y saltar si es cero
+    GOTO    DELAY_LOOP1        ; Repetir el bucle
+    RETURN                     ; Retornar de la rutina
+
+; Rutina de retardo de 2000 ms (2 segundos)
+DELAY_2000MS:
+    MOVLW   0x02               ; Cargar el valor inicial para el retardo (2 iteraciones de 1 segundo)
+    MOVWF   DELAY_COUNT2       ; Guardar en la variable de retardo
+DELAY_LOOP2:
+    CALL    DELAY_1000MS       ; Llamar a la rutina de retardo de 1000 ms (1 segundo)
+    DECFSZ  DELAY_COUNT2, F    ; Decrementar y saltar si es cero
+    GOTO    DELAY_LOOP2        ; Repetir el bucle
+    RETURN                     ; Retornar de la rutina
+
+; Rutina de retardo de 1000 ms (1 segundo) usando Timer0
+DELAY_1000MS:
+    MOVLW   0x00               ; Configurar Timer0
+    MOVWF   T0CON              ; Timer0 en modo 16 bits, preescalador 1:256
+    MOVLW   0x0B               ; Cargar el valor inicial para el Timer0
+    MOVWF   TMR0H              ; Cargar el byte alto del Timer0
+    MOVLW   0xDC               ; Cargar el valor inicial para el Timer0
+    MOVWF   TMR0L              ; Cargar el byte bajo del Timer0
+    BSF     T0CON, TMR0ON      ; Encender el Timer0
+DELAY_LOOP3:
+    BTFSS   INTCON, TMR0IF     ; Esperar a que el Timer0 desborde
+    GOTO    DELAY_LOOP3        ; Repetir el bucle
+    BCF     INTCON, TMR0IF     ; Limpiar la bandera de desbordamiento del Timer0
+    BCF     T0CON, TMR0ON      ; Apagar el Timer0
+    RETURN                     ; Retornar de la rutina
+
+                              ;PRENDE 3 SEGUNDOS Y DURA APAGADO 1 SEGUNDO
+
+    END
