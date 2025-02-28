@@ -1,0 +1,67 @@
+LIST p=18F4550
+   INCLUDE <P18F4550.INC>
+
+   CONFIG  FOSC = HS     ;Configuracion Oscilador 
+   CONFIG  PWRT = ON ;Habilitamos temporizador de encendido    
+   CONFIG  WDT = OFF     
+   CONFIG  MCLRE = ON ; se habilita el pin mclr como reset 
+   CONFIG  LVP = OFF     
+   CONFIG  PBADEN = OFF  
+
+   ;  Registros para contador 1 y 2, luego hacer retardo
+   CONTA1 EQU 0x100 
+   CONTA2 EQU 0x101
+
+   ORG 0x0000
+   GOTO CONFIG_PIC ; Va directamente a la configuracion del pic al final 
+
+RETARDO_MEDIO  
+    MOVLW   0x50      ; Carga el valor 50 en W 
+    MOVWF   CONTA1    ;Lo guarda o lo asigna en CONTA1
+
+CICLO_RETARDO
+    MOVLW   0xFF    ; Carga el valor FF en W
+    MOVWF   CONTA2    ; Lo guarda o lo asigna en CONTA2
+
+LOOP_RETARDO
+    DECFSZ  CONTA2, 1  ; Decrementa CONTA2, si llega a cero sale del loop
+    GOTO    LOOP_RETARDO ;Si no es cero, sigue restando 
+
+    DECFSZ  CONTA1, 1  ;Drecementa CONTA1, si llega a cero sale del ciclo 
+    GOTO    CICLO_RETARDO   ; Si no es cero, sigue decrementando
+
+    RETURN  ;Retorna a la funcion del retardo 
+
+PROGRAMA
+    MOVLW   b'00000111' ; Enciende los 3 LEDs
+    MOVWF   PORTB       ;Guarda el valor en PORTB
+
+    CALL    RETARDO_MEDIO ;LLama al retardo 
+    BCF     PORTB, 0      ;Apaga led en RB0
+    CALL    RETARDO_MEDIO  ;Espera
+
+    BCF     PORTB, 1  ; Apaga led RB1
+    CALL    RETARDO_MEDIO  ;Espera 
+
+    BCF     PORTB, 2 ;Apaga led RB2
+    CALL    RETARDO_MEDIO  ;Espera
+
+    MOVLW   b'00000111'  ; Enciende los LEDs nuevamente
+    MOVWF   PORTB     ;Guarda valor en PORTB
+    CALL    RETARDO_MEDIO ;Espera
+
+    GOTO    PROGRAMA    ;Repite la secuencia
+
+
+CONFIG_PIC
+    CLRF    PORTB
+    CLRF    LATB
+    MOVLW   0x0E        
+    MOVWF   ADCON1      
+
+    MOVLW   b'00000000'
+    MOVWF   TRISB       
+
+    GOTO    PROGRAMA  ;  Inicia la secuencia despues de mirar la configuración 
+
+   END
