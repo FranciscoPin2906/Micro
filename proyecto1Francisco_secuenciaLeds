@@ -1,0 +1,59 @@
+#include "p18f4550.inc"
+
+    CONFIG  FOSC = INTOSC_EC
+    CONFIG  PLLDIV = 1
+    CONFIG  CPUDIV = OSC1_PLL2
+    CONFIG  FCMEN = OFF   
+    CONFIG  IESO = OFF    
+
+    ORG     0x00         ; Dirección de inicio
+
+R_delay EQU 0x20        ; Registro para retardos
+M_loop  EQU 0x21
+N_inner EQU 0x22
+
+inicio:
+    CLRF    TRISB        ; Configurar PORTB como salida
+    CLRF    LATB         ; Apagar todos los pines de PORTB
+    
+loopGeneral:
+    CLRF    LATB         ; Apagar todos los LEDs
+    BSF     LATB, 0      ; Encender RB0
+    MOVLW   D'10'
+    MOVWF   R_delay
+    CALL    RETARDO
+
+    BCF     LATB, 0
+    BSF     LATB, 1      ; Encender RB1
+    MOVLW   D'10'
+    MOVWF   R_delay
+    CALL    RETARDO
+
+    BCF     LATB, 1
+    BSF     LATB, 2      ; Encender RB2
+    MOVLW   D'10'
+    MOVWF   R_delay
+    CALL    RETARDO
+
+    GOTO    loopGeneral  ; Repetir el ciclo
+
+RETARDO:
+    MOVLW   D'80'
+    MOVWF   M_loop
+TRES:
+    MOVLW   D'250'
+    MOVWF   N_inner
+DOS:
+    NOP
+    NOP
+    NOP
+    NOP
+    DECFSZ  N_inner,1
+    GOTO    DOS
+    DECFSZ  M_loop,1
+    GOTO    TRES
+    DECFSZ  R_delay,1
+    GOTO    RETARDO
+    RETURN
+
+    END
