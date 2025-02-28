@@ -1,0 +1,90 @@
+ ; PIC18F4550 Configuration Bit Settings
+ 
+ #include "p18f4550.inc"
+ 
+ ; CONFIG1H
+ CONFIG FOSC = INTOSC_HS    ; Oscilador interno, HS para USB
+ CONFIG FCMEN = OFF         ; Fail-Safe Clock Monitor desactivado
+ CONFIG IESO = OFF          ; Switchover desactivado
+ CONFIG PBADEN = OFF        ; PORTB como digitales
+    
+NUM EQU 0xD0      ; constante (EQU palabra reservada para guardar valores en espacios)
+cont1 EQU 0x20  ;RETARDO 
+cont2 EQU 0x21  ;RETARDO
+cont3 EQU 0x22  ;CONTADOR
+
+V1 EQU 0x23
+V2 EQU 0x24
+
+  ORG 0x00       ; Dirección de inicio del programa
+  GOTO INICIO    ; Salto a la rutina de inicio
+    
+INICIO:
+    MOVLW 0x01      ; Seleccionar Banco 1
+    MOVWF BSR       ; Cargar en BSR para seleccionar Banco 1
+
+    MOVLW 0x71      ; Oscilador interno a 8MHz
+    MOVWF OSCCON    ; Cargar valor al oscilador
+
+    CLRF TRISB      ; Puerto B como salida
+
+    MOVLW 0x0F      ; Desactivar entradas analógicas en el puerto B
+    MOVWF ADCON1    ; Cargar configuración de entradas analógicas
+
+    MOVLW 0x00      ; Seleccionar Banco 0
+    MOVWF BSR       ; Volver al Banco 0
+    
+SECUENCIA8:
+    MOVLW 0xA0    ; Valor inicial 1010 0000 (Bit 7 y 5 encendidos)
+    MOVWF V1
+    
+    MOVLW 0x02    ; Valor inicial 0000 0010 (Bit 1 encendido)
+    MOVWF V2
+    
+    MOVLW 0x07    ; 7 ciclos
+    MOVWF cont3
+    
+LOOP1:
+    MOVLW 0x00      ; Seleccionar Banco 0
+    MOVWF BSR       ; Cargar en BSR para seleccionar Banco 0
+
+    MOVF V1, W       ; Carga el valor de V1 en WREG
+    IORWF V2, W     ; OR lógico entre V1 y V2 con WREG
+    MOVWF PORTB     ; Salida al puerto B
+
+    CALL DELAY      ; Llamada al retardo
+
+RRF V1, F       ; Desplaza a la derecha V1
+RLF V2, F       ; Desplaza a la izquierda V2
+
+    DECFSZ cont3, F ; Decrementa contador, si no es 0 repite
+    GOTO LOOP1
+    
+DELAY:
+  call RETARDO
+  call RETARDO
+  call RETARDO
+  call RETARDO
+  call RETARDO
+  call RETARDO
+  call RETARDO
+  return
+  
+RETARDO:
+    MOVLW NUM
+    MOVWF cont1
+    
+REP_1
+    MOVLW NUM
+    MOVWF cont2
+    
+REP_2
+    DECFSZ cont2,1 ; Decrementa cont2 hasta 0
+    GOTO REP_2
+    
+    DECFSZ cont1,1 ; Decrementa cont1 hasta 0
+    GOTO REP_1
+    
+    RETURN
+
+    END
