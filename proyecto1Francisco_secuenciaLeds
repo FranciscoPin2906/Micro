@@ -16,24 +16,24 @@ N_DELAY EQU 0x22
 inicio:
     MOVLW 0x72  ; Configurar oscilador a 8 MHz
     MOVWF OSCCON         
-    CLRF    TRISB        ; Configurar PORTB como salida
-    CLRF    LATB         ; Apagar todos los pines de PORTB
+    CLRF    TRISA        ; Configurar PORTB como salida
+    CLRF    LATA         ; Apagar todos los pines de PORTB
     
 loopGeneral:
-    CLRF    LATB         ; Apagar todos los LEDs
-    BSF     LATB, 0      ; Encender RB0
+    CLRF    LATA         ; Apagar todos los LEDs
+    BSF     LATA, 0      ; Encender RB0
     MOVLW   D'10'
     MOVWF   R_DELAY
     CALL    RETARDO
 
-    BCF     LATB, 0
-    BSF     LATB, 1      ; Encender RB1
+    BCF     LATA, 0
+    BSF     LATA, 1      ; Encender RB1
     MOVLW   D'10'
     MOVWF   R_DELAY
     CALL    RETARDO
 
-    BCF     LATB, 1
-    BSF     LATB, 2      ; Encender RB2
+    BCF     LATA, 1
+    BSF     LATA, 2      ; Encender RB2
     MOVLW   D'10'
     MOVWF   R_DELAY
     CALL    RETARDO
