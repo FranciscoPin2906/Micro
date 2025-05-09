@@ -1,0 +1,48 @@
+#include <xc.h>
+#include <stdio.h>
+#include "LCD.h"
+#include "Config.h"
+#include "i2c.h"
+#include "ds1307.h"
+
+void main(void) {
+    unsigned char hora, minuto, segundo;
+    unsigned char dia, mes, anio;
+    char texto[17];
+
+    // Configurar oscilador y puertos
+    OSCCONbits.IRCF = 0b111;  // Frecuencia interna a 8 MHz
+    OSCCONbits.SCS = 0b10;    // Selección de fuente de reloj
+    ADCON1 = 0x0F;            // Todos los pines como digitales
+
+    // Inicialización de LCD
+    LCD_Init();
+    LCD_Clear();
+    LCD_String_xy(0, 0, "Iniciando LCD");
+    __delay_ms(1000);
+
+    // Inicializar bus I2C para el DS1307 (usa RB0 y RB1)
+    I2C_Master_Init(100000);
+    LCD_String_xy(0, 0, "RTC en proceso...");
+    RTC_Init();
+
+    // Establecer hora inicial solo si es necesario
+    RTC_SetDateTime(8, 30, 0, 24, 4, 25);  // hh, mm, ss, dd, mm, yy (25 = 2025)
+
+    LCD_Clear();
+
+    while (1) {
+        // Obtener la hora y fecha actual desde el RTC
+        RTC_GetDateTime(&hora, &minuto, &segundo, &dia, &mes, &anio);
+
+        // Mostrar la fecha en la primera línea
+        sprintf(texto, "Fecha:%02d/%02d/20%02d", dia, mes, anio);
+        LCD_String_xy(0, 0, texto);
+
+        // Mostrar la hora en la segunda línea
+        sprintf(texto, "Hora: %02d:%02d:%02d", hora, minuto, segundo);
+        LCD_String_xy(1, 0, texto);
+
+        __delay_ms(1000);  // Actualización cada segundo
+    }
+}
