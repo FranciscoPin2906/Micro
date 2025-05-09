@@ -1,0 +1,93 @@
+#include <xc.h>
+#include <string.h>
+#include "config.h"
+#include "gps.h"
+#include "lcd.h"
+
+#define BUFFER_SIZE 100
+
+// Inicialización del módulo UART para 9600 baudios, Fosc = 8 MHz
+void Serial_Init(void) {
+    TRISC7 = 1;      // RX como entrada
+    TRISC6 = 0;      // TX como salida
+    BRGH = 1;        // Alta velocidad
+    SYNC = 0;        // Asíncrono
+    SPBRG = 51;      // Baud rate
+    SPEN = 1;        // Habilita RX/TX
+    TXEN = 1;
+    CREN = 1;
+}
+
+// Lee un solo carácter recibido por UART
+char Serial_ReadChar(void) {
+    while (!RCIF);   // Espera a que haya dato disponible
+    return RCREG;
+}
+
+// Captura una línea completa (hasta '\n') del GPS
+void GPS_CapturarLinea(char *destino) {
+    char dato;
+    int index = 0;
+
+    do {
+        dato = Serial_ReadChar();
+        if (index < BUFFER_SIZE - 1) {
+            destino[index++] = dato;
+        }
+    } while (dato != '\n');
+
+    destino[index] = '\0'; // Fin de cadena
+}
+
+// Extrae y muestra información de la sentencia GPGGA
+void GPS_ProcesarGPGGA(char *cadena) {
+    if (strstr(cadena, "$GPGGA") == NULL) return;
+
+    char *campo;
+    char *lat = NULL, *ns = NULL;
+    char *lon = NULL, *ew = NULL;
+    char *fix = NULL;
+    int contador = 0;
+
+    campo = strtok(cadena, ",");
+
+    while (campo != NULL) {
+        switch (contador) {
+            case 2: lat = campo; break;
+            case 3: ns = campo; break;
+            case 4: lon = campo; break;
+            case 5: ew = campo; break;
+            case 6: fix = campo; break;
+        }
+        campo = strtok(NULL, ",");
+        contador++;
+    }
+
+    if (fix == NULL || fix[0] == '0') {
+        LCD_Cmd(0x01);
+        LCD_Set_Cursor(1, 1);
+        LCD_String("Sin senal GPS");
+        LCD_Set_Cursor(2, 1);
+        LCD_String("Espere...");
+        return;
+    }
+
+    if (lat && ns && lon && ew) {
+        LCD_Cmd(0x01);
+        LCD_Set_Cursor(1, 1);
+        LCD_String("Lat: ");
+        LCD_String(lat);
+        LCD_Char(' ');
+        LCD_Char(*ns);
+
+        LCD_Set_Cursor(2, 1);
+        LCD_String("Lon: ");
+        LCD_String(lon);
+        LCD_Char(' ');
+        LCD_Char(*ew);
+    } else {
+        LCD_Cmd(0x01);
+        LCD_Set_Cursor(1, 1);
+        LCD_String("Datos GPS incompl.");
+    }
+}
