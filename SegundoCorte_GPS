@@ -1,0 +1,93 @@
+#include <xc.h>
+#include <string.h>
+#include "config.h"
+#include "gps.h"
+#include "lcd.h"
+
+#define BUFFER_SIZE 100               // Tamaño máximo del buffer de lectura
+                                                            
+void UART_Init() {                    // Inicializa el módulo UART para comunicar con el GPS
+    TRISC7 = 1;                       // RC7 como entrada (RX)
+    TRISC6 = 0;                       // RC6 como salida (TX)
+    SPBRG = 51;                       // 9600 bps con Fosc = 8MHz
+    BRGH = 1;                         // Alta velocidad
+    SYNC = 0;                         // Modo asíncrono
+    SPEN = 1;                         // Habilita el puerto serie (activa RX y TX)
+    TXEN = 1;                         // Habilita la transmisión
+    CREN = 1;                         // Habilita recepción continua
+}
+
+char UART_Read() {                   // Espera y devuelve un carácter recibido por UART
+    while (!RCIF);                   // Espera hasta que se reciba un dato
+    return RCREG;                    // Devuelve el carácter recibido
+}
+
+void GPS_Read_Line(char* buffer) {   // Lee una línea completa (terminada en '\n') desde el GPS
+    char c;
+    int i = 0;
+
+    do {
+        c = UART_Read();             // Lee un carácter
+        if (i < BUFFER_SIZE - 1) {   // Verifica que no se desborde el buffer
+            buffer[i++] = c;         // Guarda el carácter en el buffer
+        }
+    } while (c != '\n');             // Repite hasta encontrar salto de línea
+
+    buffer[i] = '\0';                // Termina la cadena con null
+}
+
+void parseGPGGA(char* sentence) {                   // Analiza la sentencia $GPGGA y muestra latitud y longitud si hay señal
+    if (strstr(sentence, "$GPGGA") != NULL) {       // Verifica si es una sentencia GPGGA
+        char *token;
+        int field = 0;
+        char *latitude = NULL, *lat_dir = NULL;
+        char *longitude = NULL, *long_dir = NULL;
+        char *fix_quality = NULL;
+
+        token = strtok(sentence, ","); // Divide por comas
+
+        while (token != NULL) {
+            switch (field) {
+                case 2: latitude = token; break;             // Latitud
+                case 3: lat_dir = token; break;              // Dirección N/S
+                case 4: longitude = token; break;            // Longitud
+                case 5: long_dir = token; break;             // Dirección E/W
+                case 6: fix_quality = token; break;          // Calidad del fix (0 = sin señal)
+            }
+            token = strtok(NULL, ",");
+            field++;
+        }
+
+        
+        if (fix_quality == NULL || fix_quality[0] == '0') {              // Si no hay señal GPS válida (fix_quality == 0 o NULL), mostrar advertencia
+            LCD_Cmd(0x01); // Limpiar LCD
+            LCD_Set_Cursor(1, 1);
+            LCD_String("Sin senal GPS");
+            LCD_Set_Cursor(2, 1);
+            LCD_String("Espere...");
+            return;
+        }
+
+
+        if (latitude && lat_dir && longitude && long_dir) {              // Validación básica de campos (evita mostrar basura si están vacíos)
+            LCD_Cmd(0x01);                                               // Limpiar pantalla
+ 
+            LCD_Set_Cursor(1, 1);
+            LCD_String("Lat: ");
+            LCD_String(latitude);
+            LCD_Char(' ');
+            LCD_Char(*lat_dir);
+
+            LCD_Set_Cursor(2, 1);
+            LCD_String("Lon: ");
+            LCD_String(longitude);
+            LCD_Char(' ');
+            LCD_Char(*long_dir);
+        }
+        else {
+            LCD_Cmd(0x01);
+            LCD_Set_Cursor(1, 1);
+            LCD_String("Datos GPS incompl.");
+        }
+    }
+}
