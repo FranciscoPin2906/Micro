@@ -1,0 +1,61 @@
+#include <xc.h>
+#include <stdio.h>
+#include "LCD.h"
+#include "Config.h"
+#include "i2c.h"
+#include "ds1307.h"
+
+// Definición de constantes para mejor legibilidad
+#define SYSTEM_CLOCK_FREQ 0b111  // 8 MHz
+#define SYSTEM_CLOCK_SOURCE 0b10
+#define ANALOG_DISABLE 0x0F
+#define DISPLAY_DELAY_MS 1000
+#define I2C_SPEED 100000  // 100 kHz
+
+// Configuración inicial de fecha y hora
+#define INIT_HOUR 8
+#define INIT_MINUTE 30
+#define INIT_SECOND 0
+#define INIT_DAY 24
+#define INIT_MONTH 4
+#define INIT_YEAR 25
+
+void main(void) {
+    // Variables para fecha y hora
+    unsigned char hour, minute, second, day, month, year;
+    char display_buffer[17];  // Buffer para mostrar en LCD (16 caracteres + null)
+
+    // Configuración del sistema
+    OSCCONbits.IRCF = SYSTEM_CLOCK_FREQ;
+    OSCCONbits.SCS = SYSTEM_CLOCK_SOURCE;
+    ADCON1 = ANALOG_DISABLE;
+
+    // Inicialización del LCD
+    LCD_Init();
+    LCD_Clear();
+    LCD_String_xy(0, 0, "Configuracion LCD");
+    __delay_ms(DISPLAY_DELAY_MS);
+    
+    // Configuración del I2C y RTC
+    I2C_Master_Init(I2C_SPEED);  // MSSP I2C en RB0/RB1
+    LCD_String_xy(0, 0, "Configurando RTC");
+    RTC_Init();
+    RTC_SetDateTime(INIT_HOUR, INIT_MINUTE, INIT_SECOND, INIT_DAY, INIT_MONTH, INIT_YEAR);
+    LCD_Clear();
+
+    // Bucle principal
+    while (1) {        
+        // Obtener fecha y hora actual
+        RTC_GetDateTime(&hour, &minute, &second, &day, &month, &year);
+        
+        // Mostrar fecha en formato DD/MM/YYYY
+        sprintf(display_buffer, "Fecha:%02d/%02d/20%02d", day, month, year);
+        LCD_String_xy(0, 0, display_buffer);
+
+        // Mostrar hora en formato HH:MM:SS
+        sprintf(display_buffer, "Hora: %02d:%02d:%02d", hour, minute, second);
+        LCD_String_xy(1, 0, display_buffer);
+
+        __delay_ms(DISPLAY_DELAY_MS);
+    }
+}
