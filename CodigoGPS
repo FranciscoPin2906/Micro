@@ -1,0 +1,103 @@
+#include <xc.h>
+#include <stdint.h>
+#include <stdio.h>
+#include "Configuracion.h"
+#include "LCD.h"
+
+// Definiciones para el pin del sensor DHT11
+#define DHT11_INPUT     PORTBbits.RB0
+#define DHT11_TRIS      TRISBbits.TRISB0
+#define DHT11_OUTPUT    LATBbits.LATB0
+
+// Variables para humedad, temperatura y verificación
+uint8_t hum_int, hum_dec;
+uint8_t temp_int, temp_dec;
+uint8_t dht_checksum;
+
+void DHT11_RequestSignal() {
+    DHT11_TRIS = 0;         // Configura como salida
+    DHT11_OUTPUT = 0;       // Envia pulso bajo
+    __delay_ms(18);         // Espera al menos 18 ms
+
+    DHT11_OUTPUT = 1;       // Pulso alto breve
+    __delay_us(20);
+    DHT11_TRIS = 1;         // Cambia a entrada para leer
+}
+
+uint8_t DHT11_WaitResponse() {
+    while (DHT11_INPUT);        // Espera inicio del pulso bajo
+    while (!DHT11_INPUT);       // Espera pulso alto
+    while (DHT11_INPUT);        // Espera fin del pulso alto
+    return 1;
+}
+
+uint8_t DHT11_ReadByte() {
+    uint8_t bitIndex, result = 0;
+    for (bitIndex = 0; bitIndex < 8; bitIndex++) {
+        while (!DHT11_INPUT);   // Espera inicio del bit
+        __delay_us(30);         // Espera 30us para detectar el bit
+
+        result <<= 1;
+        if (DHT11_INPUT)
+            result |= 1;
+
+        while (DHT11_INPUT);    // Espera final del bit
+    }
+    return result;
+}
+
+void Mostrar_Datos_LCD(uint8_t h_int, uint8_t h_dec, uint8_t t_int, uint8_t t_dec) {
+    char buffer[10];
+    LCD_Clear();
+
+    LCD_String_xy(0, 0, "H: ");
+    sprintf(buffer, "%d.%d%%", h_int, h_dec);
+    LCD_String(buffer);
+
+    LCD_String_xy(1, 0, "T: ");
+    sprintf(buffer, "%d.%d", t_int, t_dec);
+    LCD_String(buffer);
+    LCD_Char(0xDF);  // Grado
+    LCD_Char('C');
+}
+
+void Mostrar_Error(const char* mensaje1, const char* mensaje2) {
+    LCD_Clear();
+    LCD_String_xy(0, 0, mensaje1);
+    LCD_String_xy(1, 0, mensaje2);
+}
+
+void main() {
+    OSCCONbits.IRCF = 0b111;    // Frecuencia interna al máximo
+    OSCCONbits.SCS = 0b10;      // Selección del sistema de reloj
+    ADCON1 = 0x0F;              // Todos los pines como digitales
+
+    DHT11_TRIS = 1;             // Pin como entrada inicialmente
+
+    LCD_Init();
+    LCD_String_xy(0, 0, "DHT11 SENSOR");
+    __delay_ms(1000);
+    LCD_Clear();
+
+    while (1) {
+        DHT11_RequestSignal();
+
+        if (DHT11_WaitResponse()) {
+            hum_int     = DHT11_ReadByte();
+            hum_dec     = DHT11_ReadByte();
+            temp_int    = DHT11_ReadByte();
+            temp_dec    = DHT11_ReadByte();
+            dht_checksum = DHT11_ReadByte();
+
+            if ((hum_int + hum_dec + temp_int + temp_dec) == dht_checksum) {
+                Mostrar_Datos_LCD(hum_int, hum_dec, temp_int, temp_dec);
+            } else {
+                Mostrar_Error("CHECKSUM", "ERROR");
+            }
+        } else {
+            Mostrar_Error("NO RESPONSE", "");
+        }
+
+        __delay_ms(2000);  // Tiempo de espera entre lecturas
+    }
+}
