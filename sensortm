@@ -1,0 +1,71 @@
+#include <xc.h>
+#include <stdint.h>
+#include <stdio.h>
+#include "Configuracion.h"
+#include "LCD.h"
+
+#define DHT11_DATA PORTBbits.RB0
+#define DHT11_DIR  TRISBbits.TRISB0
+#define DHT11_OUT  LATBbits.LATB0
+
+uint8_t h1, h2, t1, t2, sum;
+
+void DHT11_Init() {
+    DHT11_DIR = 0; DHT11_OUT = 0; __delay_ms(18);
+    DHT11_OUT = 1; __delay_us(20); DHT11_DIR = 1;
+}
+
+uint8_t DHT11_Response() {
+    while (DHT11_DATA);
+    while (!DHT11_DATA);
+    while (DHT11_DATA);
+    return 1;
+}
+
+uint8_t DHT11_Read() {
+    uint8_t i, d = 0;
+    for (i = 0; i < 8; i++) {
+        while (!DHT11_DATA); __delay_us(30);
+        d <<= 1;
+        if (DHT11_DATA) d |= 1;
+        while (DHT11_DATA);
+    }
+    return d;
+}
+
+void main() {
+    char txt[10];
+    OSCCONbits.IRCF = 0b111; OSCCONbits.SCS = 0b10;
+    ADCON1 = 0x0F; DHT11_DIR = 1;
+
+    LCD_Init();
+    LCD_String_xy(0, 0, "DHT11 SENSOR");
+    __delay_ms(1000); LCD_Clear();
+
+    while (1) {
+        DHT11_Init();
+        if (DHT11_Response()) {
+            h1 = DHT11_Read(); h2 = DHT11_Read();
+            t1 = DHT11_Read(); t2 = DHT11_Read();
+            sum = DHT11_Read();
+
+            if ((h1 + h2 + t1 + t2) == sum) {
+                LCD_Clear();
+                LCD_String_xy(0, 0, "H: ");
+                sprintf(txt, "%d.%d%%", h1, h2); LCD_String(txt);
+
+                LCD_String_xy(1, 0, "T: ");
+                sprintf(txt, "%d.%d", t1, t2); LCD_String(txt);
+                LCD_Char(0xDF); LCD_Char('C');
+            } else {
+                LCD_Clear();
+                LCD_String_xy(0, 0, "CHECKSUM");
+                LCD_String_xy(1, 0, "ERROR");
+            }
+        } else {
+            LCD_Clear();
+            LCD_String_xy(0, 0, "NO RESPONSE");
+        }
+        __delay_ms(2000);
+    }
+}
