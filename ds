@@ -1,0 +1,161 @@
+
+#include <xc.h>
+#include <stdint.h>
+#include <stdio.h>
+#include "Configuracion.h"
+#include "LCD.h"
+
+// Definición de constantes
+#define SYSTEM_CLOCK_FREQ     0b111     // 8 MHz
+#define SYSTEM_CLOCK_SOURCE   0b10
+#define ANALOG_DISABLE        0x0F      // Configuración de pines digitales
+#define DHT11_PIN            PORTBbits.RB0
+#define DHT11_TRIS           TRISBbits.TRISB0
+#define DHT11_LAT            LATBbits.LATB0
+#define INITIAL_DELAY_MS      1000
+#define READING_DELAY_MS      2000      // Tiempo entre lecturas (recomendado por DHT11)
+#define RESPONSE_TIMEOUT      255       // Máximo tiempo para esperar respuesta
+
+// Variables globales para los datos del sensor
+typedef struct {
+    uint8_t humidity_int;
+    uint8_t humidity_dec;
+    uint8_t temp_int;
+    uint8_t temp_dec;
+    uint8_t checksum;
+} DHT11_Data;
+
+// Prototipos de funciones
+void DHT11_Start(void);
+uint8_t DHT11_CheckResponse(void);
+uint8_t DHT11_ReadByte(void);
+void Read_DHT11(DHT11_Data *data);
+void Display_Welcome_Message(void);
+void Display_Sensor_Data(const DHT11_Data *data);
+void Display_Error(const char *line1, const char *line2);
+
+void main(void) {
+    // Configuración inicial del sistema
+    OSCCONbits.IRCF = SYSTEM_CLOCK_FREQ;
+    OSCCONbits.SCS = SYSTEM_CLOCK_SOURCE;
+    ADCON1 = ANALOG_DISABLE;
+    DHT11_TRIS = 1;  // Configurar pin DHT11 como entrada inicialmente
+    
+    // Inicialización del LCD
+    LCD_Init();
+    Display_Welcome_Message();
+    __delay_ms(INITIAL_DELAY_MS);
+    LCD_Clear();
+    
+    DHT11_Data sensor_data;
+    
+    while (1) {
+        DHT11_Start();
+        
+        if (DHT11_CheckResponse()) {
+            Read_DHT11(&sensor_data);
+            
+            // Verificar checksum
+            uint8_t calculated_sum = sensor_data.humidity_int + sensor_data.humidity_dec + 
+                                    sensor_data.temp_int + sensor_data.temp_dec;
+            
+            if (calculated_sum == sensor_data.checksum) {
+                Display_Sensor_Data(&sensor_data);
+            } else {
+                Display_Error("CHECKSUM", "ERROR!!");
+            }
+        } else {
+            Display_Error("UNRESPONSIVE", "ERROR!!");
+        }
+        
+        __delay_ms(READING_DELAY_MS);
+    }
+}
+
+// Función para iniciar la comunicación con el DHT11
+void DHT11_Start(void) {
+    DHT11_TRIS = 0;     // Configurar como salida
+    DHT11_LAT = 0;      // Poner en bajo
+    __delay_ms(18);     // Mantener por al menos 18ms
+    DHT11_LAT = 1;      // Subir la línea
+    __delay_us(20);
+    DHT11_TRIS = 1;     // Configurar como entrada
+}
+
+// Espera a que el DHT11 responda
+uint8_t DHT11_CheckResponse(void) {
+    uint8_t timeout = RESPONSE_TIMEOUT;
+    
+    while(DHT11_PIN && timeout--) ;   // Esperar hasta que el bus esté en bajo
+    if(!timeout) return 0;
+    
+    timeout = RESPONSE_TIMEOUT;
+    while(!DHT11_PIN && timeout--) ;  // Esperar hasta que el bus esté en alto
+    if(!timeout) return 0;
+    
+    timeout = RESPONSE_TIMEOUT;
+    while(DHT11_PIN && timeout--) ;   // Esperar hasta que el bus esté en bajo
+    return (timeout > 0);
+}
+
+// Lee un byte desde el DHT11
+uint8_t DHT11_ReadByte(void) {
+    uint8_t data = 0;
+    
+    for(uint8_t i = 0; i < 8; i++) {
+        while(!DHT11_PIN);  // Esperar hasta pulso de inicio
+        
+        __delay_us(30);     // Esperar para determinar si es 1 o 0
+        
+        data <<= 1;
+        if(DHT11_PIN) {     // Verificar si el bit es 1
+            data |= 1;
+        }
+        
+        while(DHT11_PIN);   // Esperar hasta que termine el pulso
+    }
+    
+    return data;
+}
+
+// Lee todos los datos del sensor DHT11
+void Read_DHT11(DHT11_Data *data) {
+    data->humidity_int = DHT11_ReadByte();
+    data->humidity_dec = DHT11_ReadByte();
+    data->temp_int = DHT11_ReadByte();
+    data->temp_dec = DHT11_ReadByte();
+    data->checksum = DHT11_ReadByte();
+}
+
+// Muestra el mensaje de bienvenida
+void Display_Welcome_Message(void) {
+    LCD_String_xy(0, 0, "WELCOME");
+    LCD_String_xy(1, 0, "MICROCONTROLADOR");
+}
+
+// Muestra los datos del sensor en el LCD
+void Display_Sensor_Data(const DHT11_Data *data) {
+    char buffer[16];
+    
+    LCD_Clear();
+    
+    // Mostrar humedad
+    LCD_String_xy(0, 0, "RH: ");
+    sprintf(buffer, "%d.%d %%", data->humidity_int, data->humidity_dec);
+    LCD_String(buffer);
+    
+    // Mostrar temperatura
+    LCD_String_xy(1, 0, "TEMP: ");
+    sprintf(buffer, "%d.%d ", data->temp_int, data->temp_dec);
+    LCD_String(buffer);
+    LCD_Char(0xDF);   // Símbolo de grado °
+    LCD_Char('C');
+}
+
+// Muestra mensajes de error
+void Display_Error(const char *line1, const char *line2) {
+    __delay_ms(1000);
+    LCD_Clear(); 
+    LCD_String_xy(0, 0, line1);
+    LCD_String_xy(1, 0, line2);
+}
