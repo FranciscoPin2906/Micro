@@ -1,0 +1,57 @@
+#include <xc.h>
+#include <stdio.h>
+#include "LCD.h"
+#include "Config.h"
+#include "i2c.h"
+#include "ds1307.h"
+
+// Prototipos
+void System_Init(void);
+void Display_DateTime(void);
+
+void main(void) {
+    System_Init();
+
+    while (1) {
+        Display_DateTime();
+        __delay_ms(1000);
+    }
+}
+
+// Inicialización del sistema
+void System_Init(void) {
+    unsigned char initHour = 8, initMin = 30, initSec = 0;
+    unsigned char initDay = 24, initMonth = 4, initYear = 25;
+
+    OSCCONbits.IRCF = 0b111; // 8 MHz
+    OSCCONbits.SCS = 0b10;
+    ADCON1 = 0x0F;
+
+    LCD_Init();
+    LCD_Clear();
+    LCD_String_xy(0, 0, "Configuracion LCD");
+    __delay_ms(1000);
+
+    I2C_Master_Init(100000); // MSSP I2C en RB0/RB1
+    LCD_Clear();
+    LCD_String_xy(0, 0, "Configurando RTC");
+
+    RTC_Init();
+    RTC_SetDateTime(initHour, initMin, initSec, initDay, initMonth, initYear);
+
+    LCD_Clear();
+}
+
+// Mostrar fecha y hora en el LCD
+void Display_DateTime(void) {
+    unsigned char h, m, s, d, mo, y;
+    char buffer[17];
+
+    RTC_GetDateTime(&h, &m, &s, &d, &mo, &y);
+
+    sprintf(buffer, "Fecha:%02d/%02d/20%02d", d, mo, y);
+    LCD_String_xy(0, 0, buffer);
+
+    sprintf(buffer, "Hora: %02d:%02d:%02d", h, m, s);
+    LCD_String_xy(1, 0, buffer);
+}
